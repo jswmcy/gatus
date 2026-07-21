@@ -131,12 +131,9 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
-import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
 import { XCircle, AlertTriangle, Info, CheckCircle, Circle, ChevronDown } from 'lucide-vue-next'
+
+const { t } = useI18n()
 import { formatAnnouncementMessage } from '@/utils/markdown'
 
 // Props
