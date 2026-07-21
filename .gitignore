@@ -8,6 +8,7 @@
 
 # JS
 node_modules
+web/static/
 
 # Go
 /vendor
