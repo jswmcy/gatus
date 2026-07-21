@@ -59,7 +59,10 @@
     "monitoringStarted": "Monitoring started",
     "endpointBecameHealthy": "Endpoint became healthy",
     "endpointBecameUnhealthy": "Endpoint became unhealthy",
-    "endpointWasUnhealthyFor": "Endpoint was unhealthy for {duration}"
+    "endpointWasUnhealthyFor": "Endpoint was unhealthy for {duration}",
+    "endpointDegraded": "Endpoint is degraded",
+    "endpointWasDegradedFor": "Endpoint was degraded for {duration}",
+    "endpointBecameDegraded": "Endpoint became degraded"
   },
   "suiteDetails": {
     "backToDashboard": "Back to Dashboard",

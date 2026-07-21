@@ -178,6 +178,7 @@
                   <div class="mt-1">
                     <ArrowUpCircle v-if="event.type === 'HEALTHY'" class="h-5 w-5 text-green-500" />
                     <ArrowDownCircle v-else-if="event.type === 'UNHEALTHY'" class="h-5 w-5 text-red-500" />
+                    <AlertTriangle v-else-if="event.type === 'DEGRADED'" class="h-5 w-5 text-yellow-500" />
                     <PlayCircle v-else class="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div class="flex-1">
@@ -206,7 +207,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 
 const { t } = useI18n()
-import { ArrowLeft, RefreshCw, ArrowUpCircle, ArrowDownCircle, PlayCircle, Activity, Timer } from 'lucide-vue-next'
+import { ArrowLeft, RefreshCw, ArrowUpCircle, ArrowDownCircle, PlayCircle, Activity, Timer, AlertTriangle } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -371,6 +372,8 @@ const fetchData = async () => {
               event.fancyText = t('endpointDetails.endpointUnhealthy')
             } else if (event.type === 'HEALTHY') {
               event.fancyText = t('endpointDetails.endpointHealthy')
+            } else if (event.type === 'DEGRADED') {
+              event.fancyText = t('endpointDetails.endpointDegraded')
             } else if (event.type === 'START') {
               event.fancyText = t('endpointDetails.monitoringStarted')
             }
@@ -383,6 +386,12 @@ const fetchData = async () => {
                 event.fancyText = t('endpointDetails.endpointWasUnhealthyFor', { duration: generatePrettyTimeDifference(nextEvent.timestamp, event.timestamp) })
               } else {
                 event.fancyText = t('endpointDetails.endpointBecameUnhealthy')
+              }
+            } else if (event.type === 'DEGRADED') {
+              if (nextEvent) {
+                event.fancyText = t('endpointDetails.endpointWasDegradedFor', { duration: generatePrettyTimeDifference(nextEvent.timestamp, event.timestamp) })
+              } else {
+                event.fancyText = t('endpointDetails.endpointBecameDegraded')
               }
             } else if (event.type === 'START') {
               event.fancyText = t('endpointDetails.monitoringStarted')

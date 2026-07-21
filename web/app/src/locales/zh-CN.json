@@ -59,7 +59,10 @@
     "monitoringStarted": "监控已启动",
     "endpointBecameHealthy": "端点已恢复健康",
     "endpointBecameUnhealthy": "端点状态变为异常",
-    "endpointWasUnhealthyFor": "端点异常持续 {duration}"
+    "endpointWasUnhealthyFor": "端点异常持续 {duration}",
+    "endpointDegraded": "端点处于亚健康状态",
+    "endpointWasDegradedFor": "端点亚健康状态已持续{duration}",
+    "endpointBecameDegraded": "端点变为亚健康状态"
   },
   "suiteDetails": {
     "backToDashboard": "返回仪表盘",
