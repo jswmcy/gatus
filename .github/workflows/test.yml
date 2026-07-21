@@ -6,7 +6,7 @@ on:
       - '.examples/**'
   push:
     branches:
-      - master
+      - main
     paths-ignore:
       - '*.md'
       - '.github/**'
