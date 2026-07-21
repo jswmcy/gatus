@@ -42,7 +42,9 @@
                 result ? 'cursor-pointer' : '',
                 result ? (
                   result.success
-                    ? (selectedResultIndex === index ? 'bg-green-700' : 'bg-green-500 hover:bg-green-700')
+                    ? (result.degraded
+                      ? (selectedResultIndex === index ? 'bg-yellow-600' : 'bg-yellow-400 hover:bg-yellow-600')
+                      : (selectedResultIndex === index ? 'bg-green-700' : 'bg-green-500 hover:bg-green-700'))
                     : (selectedResultIndex === index ? 'bg-red-700' : 'bg-red-500 hover:bg-red-700')
                 ) : 'bg-gray-200 dark:bg-gray-700'
               ]"
@@ -99,7 +101,9 @@ const currentStatus = computed(() => {
   if (!props.suite.results || props.suite.results.length === 0) {
     return 'unknown'
   }
-  return props.suite.results[props.suite.results.length - 1].success ? 'healthy' : 'unhealthy'
+  const latest = props.suite.results[props.suite.results.length - 1]
+  if (latest.degraded) return 'degraded'
+  return latest.success ? 'healthy' : 'unhealthy'
 })
 
 const endpointCount = computed(() => {

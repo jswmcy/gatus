@@ -91,6 +91,15 @@ func (c Condition) evaluate(result *Result, dontResolveFailedConditions bool, re
 	return success
 }
 
+// isPerformanceCondition checks whether the condition is a performance-related condition.
+// Performance conditions should result in DEGRADED (yellow) status instead of DOWN (red).
+func (c Condition) isPerformanceCondition() bool {
+	s := string(c)
+	return strings.Contains(s, ResponseTimePlaceholder) ||
+		strings.Contains(s, CertificateExpirationPlaceholder) ||
+		strings.Contains(s, DomainExpirationPlaceholder)
+}
+
 // hasBodyPlaceholder checks whether the condition has a BodyPlaceholder
 // Used for determining whether the response body should be read or not
 func (c Condition) hasBodyPlaceholder() bool {

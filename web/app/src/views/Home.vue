@@ -68,6 +68,10 @@
                       class="bg-red-600 text-white px-2 py-1 rounded-full text-sm font-medium">
                   {{ calculateUnhealthyCount(items.endpoints) + calculateFailingSuitesCount(items.suites) }}
                 </span>
+                <span v-else-if="calculateDegradedCount(items.endpoints) > 0"
+                      class="bg-yellow-500 text-white px-2 py-1 rounded-full text-sm font-medium">
+                  {{ calculateDegradedCount(items.endpoints) }}
+                </span>
                 <CheckCircle v-else class="h-6 w-6 text-green-600" />
               </div>
             </div>
@@ -244,7 +248,7 @@ const filteredEndpoints = computed(() => {
     filtered = filtered.filter(endpoint => {
       if (!endpoint.results || endpoint.results.length === 0) return false
       const latestResult = endpoint.results[endpoint.results.length - 1]
-      return !latestResult.success
+      return !latestResult.success || latestResult.degraded
     })
   }
   
@@ -258,12 +262,18 @@ const filteredEndpoints = computed(() => {
   // Sort by health if selected
   if (sortBy.value === 'health') {
     filtered.sort((a, b) => {
-      const aHealthy = a.results && a.results.length > 0 && a.results[a.results.length - 1].success
-      const bHealthy = b.results && b.results.length > 0 && b.results[b.results.length - 1].success
+      const aResult = a.results && a.results.length > 0 ? a.results[a.results.length - 1] : null
+      const bResult = b.results && b.results.length > 0 ? b.results[b.results.length - 1] : null
       
-      // Unhealthy first
-      if (!aHealthy && bHealthy) return -1
-      if (aHealthy && !bHealthy) return 1
+      // Unhealthy first, then degraded, then healthy
+      const getHealthRank = (r) => {
+        if (!r || !r.success) return 0
+        if (r.degraded) return 1
+        return 2
+      }
+      const rankA = getHealthRank(aResult)
+      const rankB = getHealthRank(bResult)
+      if (rankA !== rankB) return rankA - rankB
       
       // Then sort by name
       return a.name.localeCompare(b.name)
@@ -287,7 +297,8 @@ const filteredSuites = computed(() => {
   if (showOnlyFailing.value) {
     filtered = filtered.filter(suite => {
       if (!suite.results || suite.results.length === 0) return false
-      return !suite.results[suite.results.length - 1].success
+      const latest = suite.results[suite.results.length - 1]
+      return !latest.success || latest.degraded
     })
   }
   
@@ -301,12 +312,18 @@ const filteredSuites = computed(() => {
   // Sort by health if selected
   if (sortBy.value === 'health') {
     filtered.sort((a, b) => {
-      const aHealthy = a.results && a.results.length > 0 && a.results[a.results.length - 1].success
-      const bHealthy = b.results && b.results.length > 0 && b.results[b.results.length - 1].success
+      const aResult = a.results && a.results.length > 0 ? a.results[a.results.length - 1] : null
+      const bResult = b.results && b.results.length > 0 ? b.results[b.results.length - 1] : null
       
-      // Unhealthy first
-      if (!aHealthy && bHealthy) return -1
-      if (aHealthy && !bHealthy) return 1
+      // Unhealthy first, then degraded, then healthy
+      const getHealthRank = (r) => {
+        if (!r || !r.success) return 0
+        if (r.degraded) return 1
+        return 2
+      }
+      const rankA = getHealthRank(aResult)
+      const rankB = getHealthRank(bResult)
+      if (rankA !== rankB) return rankA - rankB
       
       // Then sort by name
       return a.name.localeCompare(b.name)
@@ -499,6 +516,14 @@ const calculateUnhealthyCount = (endpoints) => {
     if (!endpoint.results || endpoint.results.length === 0) return false
     const latestResult = endpoint.results[endpoint.results.length - 1]
     return !latestResult.success
+  }).length
+}
+
+const calculateDegradedCount = (endpoints) => {
+  return endpoints.filter(endpoint => {
+    if (!endpoint.results || endpoint.results.length === 0) return false
+    const latestResult = endpoint.results[endpoint.results.length - 1]
+    return latestResult.success && latestResult.degraded
   }).length
 }
 

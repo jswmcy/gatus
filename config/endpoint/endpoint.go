@@ -136,6 +136,9 @@ type Endpoint struct {
 	// NumberOfSuccessesInARow is the number of successful evaluations in a row
 	NumberOfSuccessesInARow int `yaml:"-"`
 
+	// NumberOfDegradedInARow is the number of degraded evaluations in a row
+	NumberOfDegradedInARow int `yaml:"-"`
+
 	// LastReminderSent is the time at which the last reminder was sent for this endpoint.
 	LastReminderSent time.Time `yaml:"-"`
 
@@ -331,12 +334,31 @@ func (e *Endpoint) EvaluateHealthWithContext(context *gontext.Gontext) *Result {
 	} else {
 		result.Success = false
 	}
-	// Evaluate the conditions
+	// Evaluate the conditions with three-state logic: UP / DEGRADED / DOWN
+	var performanceFailed bool
+	var connectivityFailed bool
 	for _, condition := range processedEndpoint.Conditions {
 		success := condition.evaluate(result, processedEndpoint.UIConfig.DontResolveFailedConditions, processedEndpoint.UIConfig.ResolveSuccessfulConditions, context)
 		if !success {
-			result.Success = false
+			if condition.isPerformanceCondition() {
+				performanceFailed = true
+			} else {
+				connectivityFailed = true
+			}
 		}
+	}
+	if connectivityFailed {
+		// At least one non-performance condition failed → truly DOWN
+		result.Success = false
+		result.Degraded = false
+	} else if performanceFailed {
+		// Only performance conditions failed → DEGRADED (yellow warning)
+		result.Success = true
+		result.Degraded = true
+	} else {
+		// All conditions passed → UP (green healthy)
+		result.Success = true
+		result.Degraded = false
 	}
 	result.Timestamp = time.Now()
 	// Clean up parameters that we don't need to keep in the results

@@ -17,6 +17,9 @@ type Result struct {
 	// Success indicates whether all required endpoints succeeded
 	Success bool `json:"success"`
 
+	// Degraded indicates the suite is functional but at least one endpoint has performance issues
+	Degraded bool `json:"degraded"`
+
 	// Timestamp is when the suite execution started
 	Timestamp time.Time `json:"timestamp"`
 
@@ -41,15 +44,24 @@ func (r *Result) AddError(err string) {
 // CalculateSuccess determines if the suite execution was successful
 func (r *Result) CalculateSuccess() {
 	r.Success = true
+	r.Degraded = false
 	// Check if any endpoints failed (all endpoints are required)
 	for _, epResult := range r.EndpointResults {
 		if !epResult.Success {
 			r.Success = false
 			break
 		}
+		if epResult.Degraded {
+			r.Degraded = true
+		}
 	}
 	// Also check for suite-level errors
 	if len(r.Errors) > 0 {
 		r.Success = false
+		r.Degraded = false
+	}
+	// If there's a DOWN endpoint, degraded is irrelevant
+	if !r.Success {
+		r.Degraded = false
 	}
 }

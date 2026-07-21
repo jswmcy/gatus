@@ -241,6 +241,7 @@ const latestResult = computed(() => {
 
 const currentHealthStatus = computed(() => {
   if (!latestResult.value) return 'unknown'
+  if (latestResult.value.degraded) return 'degraded'
   return latestResult.value.success ? 'healthy' : 'unhealthy'
 })
 

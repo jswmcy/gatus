@@ -41,8 +41,10 @@
                 'flex-1 h-6 sm:h-8 rounded-sm transition-all',
                 result ? 'cursor-pointer' : '',
                 result ? (
-                  result.success 
-                    ? (selectedResultIndex === index ? 'bg-green-700' : 'bg-green-500 hover:bg-green-700')
+                  result.success
+                    ? (result.degraded
+                      ? (selectedResultIndex === index ? 'bg-yellow-600' : 'bg-yellow-400 hover:bg-yellow-600')
+                      : (selectedResultIndex === index ? 'bg-green-700' : 'bg-green-500 hover:bg-green-700'))
                     : (selectedResultIndex === index ? 'bg-red-700' : 'bg-red-500 hover:bg-red-700')
                 ) : 'bg-gray-200 dark:bg-gray-700'
               ]"
@@ -99,6 +101,7 @@ const latestResult = computed(() => {
 
 const currentStatus = computed(() => {
   if (!latestResult.value) return 'unknown'
+  if (latestResult.value.degraded) return 'degraded'
   return latestResult.value.success ? 'healthy' : 'unhealthy'
 })
 

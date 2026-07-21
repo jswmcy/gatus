@@ -36,6 +36,9 @@ type Result struct {
 	// Success whether the result signifies a success or not
 	Success bool `json:"success"`
 
+	// Degraded indicates the endpoint is functional but has performance issues
+	Degraded bool `json:"degraded"`
+
 	// Timestamp when the request was sent
 	Timestamp time.Time `json:"timestamp"`
 
