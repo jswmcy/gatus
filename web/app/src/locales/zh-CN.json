@@ -32,7 +32,7 @@
   "status": {
     "healthy": "健康",
     "unhealthy": "故障",
-    "degraded": "降级",
+    "degraded": "亚健康",
     "unknown": "未知",
     "operational": "运行正常",
     "issuesDetected": "检测到问题"

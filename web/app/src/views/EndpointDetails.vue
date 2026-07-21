@@ -17,7 +17,7 @@
                 <span v-if="hostname">{{ hostname }}</span>
               </div>
             </div>
-            <StatusBadge :status="currentHealthStatus" />
+            <StatusBadge :status="currentHealthStatus" :tooltip="degradedReason" />
           </div>
 
           <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -244,6 +244,44 @@ const currentHealthStatus = computed(() => {
   if (latestResult.value.degraded) return 'degraded'
   return latestResult.value.success ? 'healthy' : 'unhealthy'
 })
+
+/**
+ * 构建 degraded 状态 tooltip 内容
+ */
+const degradedReason = computed(() => {
+  if (!latestResult.value || !latestResult.value.degraded) return ''
+  const result = latestResult.value
+  if (result.conditionResults && result.conditionResults.length > 0) {
+    const failedConditions = result.conditionResults.filter(c => !c.success)
+    if (failedConditions.length > 0) {
+      const reasons = failedConditions.map(c => {
+        const raw = c.condition
+        const responseTimeMatch = raw.match(/\[RESPONSE_TIME\]\s*([<>=!]+)\s*(\d+)/)
+        if (responseTimeMatch) {
+          const durationMs = Math.trunc((result.duration || 0) / 1000000)
+          const threshold = responseTimeMatch[2]
+          return `响应时间 ${durationMs}ms 超过阈值 ${threshold}ms`
+        }
+        return translateConditionSimple(raw)
+      })
+      return reasons.join('; ')
+    }
+  }
+  const durationMs = Math.trunc((result.duration || 0) / 1000000)
+  return `响应时间 ${durationMs}ms`
+})
+
+function translateConditionSimple(condition) {
+  if (!condition) return condition
+  const map = {
+    '[CONNECTED]': '连接', '[STATUS]': '状态码', '[BODY]': '响应体',
+    '[RESPONSE_TIME]': '响应时间', '[CERTIFICATE_EXPIRATION]': '证书到期',
+    '[IP]': 'IP地址', '[DNS_RCODE]': 'DNS返回码',
+  }
+  let result = condition
+  for (const [key, value] of Object.entries(map)) result = result.replaceAll(key, value)
+  return result
+}
 
 const hostname = computed(() => {
   return latestResult.value?.hostname || null

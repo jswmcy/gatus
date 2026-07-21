@@ -22,7 +22,7 @@
           </div>
         </div>
         <div class="flex-shrink-0 ml-2">
-          <StatusBadge :status="currentStatus" />
+          <StatusBadge :status="currentStatus" :tooltip="degradedReason" />
         </div>
       </div>
     </CardHeader>
@@ -105,6 +105,46 @@ const currentStatus = computed(() => {
   if (latest.degraded) return 'degraded'
   return latest.success ? 'healthy' : 'unhealthy'
 })
+
+/**
+ * 构建 suite degraded 状态 tooltip 内容
+ */
+const degradedReason = computed(() => {
+  if (!props.suite.results || props.suite.results.length === 0) return ''
+  const latest = props.suite.results[props.suite.results.length - 1]
+  if (!latest.degraded) return ''
+  const result = latest
+  if (result.conditionResults && result.conditionResults.length > 0) {
+    const failedConditions = result.conditionResults.filter(c => !c.success)
+    if (failedConditions.length > 0) {
+      const reasons = failedConditions.map(c => {
+        const raw = c.condition
+        const responseTimeMatch = raw.match(/\[RESPONSE_TIME\]\s*([<>=!]+)\s*(\d+)/)
+        if (responseTimeMatch) {
+          const durationMs = Math.trunc((result.duration || 0) / 1000000)
+          const threshold = responseTimeMatch[2]
+          return `响应时间 ${durationMs}ms 超过阈值 ${threshold}ms`
+        }
+        return translateConditionSimple(raw)
+      })
+      return reasons.join('; ')
+    }
+  }
+  const durationMs = Math.trunc((result.duration || 0) / 1000000)
+  return `响应时间 ${durationMs}ms`
+})
+
+function translateConditionSimple(condition) {
+  if (!condition) return condition
+  const map = {
+    '[CONNECTED]': '连接', '[STATUS]': '状态码', '[BODY]': '响应体',
+    '[RESPONSE_TIME]': '响应时间', '[CERTIFICATE_EXPIRATION]': '证书到期',
+    '[IP]': 'IP地址', '[DNS_RCODE]': 'DNS返回码',
+  }
+  let result = condition
+  for (const [key, value] of Object.entries(map)) result = result.replaceAll(key, value)
+  return result
+}
 
 const endpointCount = computed(() => {
   if (!props.suite.results || props.suite.results.length === 0) {

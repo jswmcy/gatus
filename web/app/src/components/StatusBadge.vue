@@ -1,5 +1,5 @@
 <template>
-  <Badge :variant="variant" class="flex items-center gap-1">
+  <Badge :variant="variant" class="flex items-center gap-1" :title="tooltip || undefined">
     <span :class="['w-2 h-2 rounded-full', dotClass]"></span>
     {{ label }}
   </Badge>
@@ -17,6 +17,10 @@ const props = defineProps({
     type: String,
     required: true,
     validator: (value) => ['healthy', 'unhealthy', 'degraded', 'unknown'].includes(value)
+  },
+  tooltip: {
+    type: String,
+    default: ''
   }
 })
 
