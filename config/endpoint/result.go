@@ -74,3 +74,15 @@ func (r *Result) AddError(error string) {
 		r.Errors = append(r.Errors, error+"")
 	}
 }
+
+// StatusKey returns a string representation of the result's effective status.
+// Possible values: "HEALTHY", "DEGRADED", "UNHEALTHY"
+func (r *Result) StatusKey() string {
+	if r.Degraded {
+		return "DEGRADED"
+	}
+	if r.Success {
+		return "HEALTHY"
+	}
+	return "UNHEALTHY"
+}

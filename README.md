@@ -12,9 +12,9 @@ Gatus 健康监控仪表盘的中文汉化版 Docker 镜像。
 docker run -d \
   --name gatus \
   --restart unless-stopped \
-  -p 8080:8080 \
-  -v $(pwd)/config:/config \
-  zenbox01/gatus:latest
+  -p 5001:8080 \
+  -v /root/data/gatus:/config \
+  docker.193019.xyz/zenbox01/gatus
 ```
 
 挂载的 `config/config.yaml` 示例：
@@ -40,7 +40,23 @@ ui:
 | Docker 平台 | linux/amd64 + linux/arm64 + linux/arm/v7 + linux/ppc64le | **仅 linux/amd64** |
 | 镜像名 | `twin/gatus` | **`zenbox01/gatus`** |
 | 前端语言 | 英文 | **自动中英文切换**（`en.json` + `zh-CN.json`） |
+| 健康状态 | 二态（UP/DOWN） | **三态（健康/亚健康/故障）** |
+| 告警 | 仅故障告警 | **亚健康也触发告警**，复用 FailureThreshold 抑制机制 |
 | Dependabot | 开启 | **关闭**（仅构建项目自身镜像） |
+
+## 三态健康状态
+
+在上游二态（健康/故障）基础上新增**亚健康**（DEGRADED）中间态，用于区分"服务没挂但性能不达标"的情况：
+
+| 状态 | 颜色 | 标签 | 触发条件 |
+|------|------|------|----------|
+| 健康 | 🟢 绿 | 健康 | 所有条件通过 |
+| 亚健康 | 🟡 黄 | 亚健康 | 连通性条件通过，性能条件失败（`[RESPONSE_TIME]` / `[CERTIFICATE_EXPIRATION]` / `[DOMAIN_EXPIRATION]`） |
+| 故障 | 🔴 红 | 故障 | 连通性条件失败 |
+
+- 悬停"亚健康"标签可查看具体触发原因（如 `响应时间 235ms 超过阈值 200ms`）
+- 事件日志支持三态记录（`HEALTHY` / `DEGRADED` / `UNHEALTHY`）
+- 亚健康告警复用 `failure-threshold` 阈值和 `Triggered` 抑制机制，不会刷屏
 
 ## 语言切换
 

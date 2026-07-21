@@ -84,7 +84,7 @@ func AddResult(ss *endpoint.Status, result *endpoint.Result, maximumNumberOfResu
 	}
 	if len(ss.Results) > 0 {
 		// Check if there's any change since the last result
-		if ss.Results[len(ss.Results)-1].Success != result.Success {
+		if ss.Results[len(ss.Results)-1].StatusKey() != result.StatusKey() {
 			ss.Events = append(ss.Events, endpoint.NewEventFromResult(result))
 			if len(ss.Events) > maximumNumberOfEvents {
 				// Doing ss.Events[1:] would usually be sufficient, but in the case where for some reason, the slice has

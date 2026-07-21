@@ -138,6 +138,7 @@ func (s *Store) createSQLiteSchema() error {
 	}
 	// Silent table modifications TODO: Remove this in v6.0.0
 	_, _ = s.db.Exec(`ALTER TABLE endpoint_results ADD domain_expiration INTEGER NOT NULL DEFAULT 0`)
+	_, _ = s.db.Exec(`ALTER TABLE endpoint_results ADD degraded INTEGER NOT NULL DEFAULT 0`)
 	// Add suite_result_id to endpoint_results table for suite endpoint linkage
 	_, _ = s.db.Exec(`ALTER TABLE endpoint_results ADD suite_result_id INTEGER REFERENCES suite_results(suite_result_id) ON DELETE CASCADE`)
 	// Create index for suite_result_id

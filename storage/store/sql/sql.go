@@ -286,17 +286,17 @@ func (s *Store) InsertEndpointResult(ep *endpoint.Endpoint, result *endpoint.Res
 			logr.Errorf("[sql.InsertEndpointResult] Failed to insert event=%s for endpoint with key=%s: %s", event.Type, ep.Key(), err.Error())
 		}
 	} else {
-		// Get the success value of the previous result
-		var lastResultSuccess bool
-		if lastResultSuccess, err = s.getLastEndpointResultSuccessValue(tx, endpointID); err != nil {
+		// Get the status of the previous result
+		var lastResultStatus string
+		if lastResultStatus, err = s.getLastEndpointResultStatus(tx, endpointID); err != nil {
 			// Silently fail
-			logr.Errorf("[sql.InsertEndpointResult] Failed to retrieve outcome of previous result for endpoint with key=%s: %s", ep.Key(), err.Error())
+			logr.Errorf("[sql.InsertEndpointResult] Failed to retrieve status of previous result for endpoint with key=%s: %s", ep.Key(), err.Error())
 		} else {
-			// If we managed to retrieve the outcome of the previous result, we'll compare it with the new result.
-			// If the final outcome (success or failure) of the previous and the new result aren't the same, it means
-			// that the endpoint either went from Healthy to Unhealthy or Unhealthy -> Healthy, therefore, we'll add
-			// an event to mark the change in state
-			if lastResultSuccess != result.Success {
+			// If we managed to retrieve the status of the previous result, we'll compare it with the new result.
+			// If the effective status (HEALTHY/DEGRADED/UNHEALTHY) of the previous and the new result aren't the same,
+			// it means that the endpoint either went from Healthy to Unhealthy, Healthy to Degraded, etc.
+			// Therefore, we'll add an event to mark the change in state
+			if lastResultStatus != result.StatusKey() {
 				event := endpoint.NewEventFromResult(result)
 				if err = s.insertEndpointEvent(tx, endpointID, event); err != nil {
 					// Silently fail
@@ -623,12 +623,13 @@ func (s *Store) insertEndpointResultWithSuiteID(tx *sql.Tx, endpointID int64, re
 	var endpointResultID int64
 	err := tx.QueryRow(
 		`
-			INSERT INTO endpoint_results (endpoint_id, success, errors, connected, status, dns_rcode, certificate_expiration, domain_expiration, hostname, ip, duration, timestamp, suite_result_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			INSERT INTO endpoint_results (endpoint_id, success, degraded, errors, connected, status, dns_rcode, certificate_expiration, domain_expiration, hostname, ip, duration, timestamp, suite_result_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 			RETURNING endpoint_result_id
 		`,
 		endpointID,
 		result.Success,
+		result.Degraded,
 		strings.Join(result.Errors, arraySeparator),
 		result.Connected,
 		result.HTTPStatus,
@@ -1000,6 +1001,25 @@ func (s *Store) getLastEndpointResultSuccessValue(tx *sql.Tx, endpointID int64) 
 		return false, err
 	}
 	return success, nil
+}
+
+func (s *Store) getLastEndpointResultStatus(tx *sql.Tx, endpointID int64) (string, error) {
+	var success, degraded bool
+	err := tx.QueryRow("SELECT success, degraded FROM endpoint_results WHERE endpoint_id = $1 ORDER BY endpoint_result_id DESC LIMIT 1", endpointID).Scan(&success, &degraded)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errNoRowsReturned
+		}
+		return "", err
+	}
+	// Build the status key from stored fields
+	if degraded {
+		return "DEGRADED", nil
+	}
+	if success {
+		return "HEALTHY", nil
+	}
+	return "UNHEALTHY", nil
 }
 
 // deleteOldEndpointEvents deletes endpoint events that are no longer needed
