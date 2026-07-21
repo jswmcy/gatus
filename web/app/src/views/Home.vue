@@ -185,9 +185,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Activity, Timer, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CheckCircle } from 'lucide-vue-next'
-
-const { t } = useI18n()
-const noGroupLabel = computed(() => t('home.noGroup'))
 import { Button } from '@/components/ui/button'
 import EndpointCard from '@/components/EndpointCard.vue'
 import SuiteCard from '@/components/SuiteCard.vue'
@@ -196,6 +193,9 @@ import Settings from '@/components/Settings.vue'
 import Loading from '@/components/Loading.vue'
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue'
 import PastAnnouncements from '@/components/PastAnnouncements.vue'
+
+const { t } = useI18n()
+const noGroupLabel = computed(() => t('home.noGroup'))
 
 const props = defineProps({
   announcements: {

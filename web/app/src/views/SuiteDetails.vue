@@ -144,11 +144,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
-import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, RefreshCw, AlertCircle, ChevronRight } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -161,6 +156,7 @@ import Loading from '@/components/Loading.vue'
 import { generatePrettyTimeAgo } from '@/utils/time'
 import { formatDuration } from '@/utils/format'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 
