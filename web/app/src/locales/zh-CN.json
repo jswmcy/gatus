@@ -100,7 +100,17 @@
     "url": "URL",
     "method": "方法",
     "interval": "间隔",
-    "timeout": "超时"
+    "timeout": "超时",
+    "tooltip": {
+      "timestamp": "时间戳",
+      "responseTime": "响应时间",
+      "totalDuration": "总耗时",
+      "conditions": "条件结果",
+      "errors": "错误",
+      "suitePassed": "套件通过",
+      "suiteFailed": "套件失败",
+      "andMore": "... 还有 {count} 个"
+    }
   },
   "pagination": {
     "previous": "上一页",

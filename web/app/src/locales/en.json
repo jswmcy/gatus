@@ -100,7 +100,17 @@
     "url": "URL",
     "method": "Method",
     "interval": "Interval",
-    "timeout": "Timeout"
+    "timeout": "Timeout",
+    "tooltip": {
+      "timestamp": "Timestamp",
+      "responseTime": "Response Time",
+      "totalDuration": "Total Duration",
+      "conditions": "Conditions",
+      "errors": "Errors",
+      "suitePassed": "Suite Passed",
+      "suiteFailed": "Suite Failed",
+      "andMore": "... and {count} more"
+    }
   },
   "pagination": {
     "previous": "Previous",
