@@ -537,11 +537,19 @@ const initializeCollapsedGroups = () => {
 }
 
 const dashboardHeading = computed(() => {
-  return window.config && window.config.dashboardHeading && window.config.dashboardHeading !== '{{ .UI.DashboardHeading }}' ? window.config.dashboardHeading : t('app.dashboardHeading')
+  const configVal = window.config?.dashboardHeading
+  if (configVal && configVal !== '{{ .UI.DashboardHeading }}' && configVal !== 'Health Dashboard') {
+    return configVal
+  }
+  return t('app.dashboardHeading')
 })
 
 const dashboardSubheading = computed(() => {
-  return window.config && window.config.dashboardSubheading && window.config.dashboardSubheading !== '{{ .UI.DashboardSubheading }}' ? window.config.dashboardSubheading : t('app.dashboardSubheading')
+  const configVal = window.config?.dashboardSubheading
+  if (configVal && configVal !== '{{ .UI.DashboardSubheading }}' && configVal !== 'Monitor the health of your endpoints in real-time') {
+    return configVal
+  }
+  return t('app.dashboardSubheading')
 })
 
 onMounted(() => {
