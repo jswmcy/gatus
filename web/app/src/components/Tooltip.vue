@@ -76,7 +76,7 @@
             <span :class="conditionResult.success ? 'text-green-500' : 'text-red-500'">
               {{ conditionResult.success ? '✓' : '✗' }}
             </span>
-            <span class="break-all">{{ conditionResult.condition }}</span>
+            <span class="break-all">{{ translateCondition(conditionResult.condition) }}</span>
           </div>
         </div>
       </div>
@@ -102,6 +102,41 @@ import { prettifyTimestamp } from '@/utils/time'
 
 const route = useRoute()
 const { t } = useI18n()
+
+/**
+ * Translate backend condition expressions (e.g. [CONNECTED] == true) to Chinese.
+ * Performs keyword-only mapping without i18n, since these are runtime data.
+ */
+function translateCondition(condition) {
+  if (!condition) return condition
+
+  const placeholderMap = {
+    '[CONNECTED]': '连接',
+    '[STATUS]': '状态码',
+    '[BODY]': '响应体',
+    '[RESPONSE_TIME]': '响应时间',
+    '[CERTIFICATE_EXPIRATION]': '证书到期',
+    '[IP]': 'IP地址',
+    '[DNS_RCODE]': 'DNS返回码',
+  }
+
+  let result = condition
+
+  // Replace placeholder keywords
+  for (const [key, value] of Object.entries(placeholderMap)) {
+    result = result.replaceAll(key, value)
+  }
+
+  // Replace operators
+  result = result.replace(/contains "(.*?)"/g, '包含 "$1"')
+  result = result.replace(/not contains "(.*?)"/g, '不包含 "$1"')
+  result = result.replace(/== true/g, '正常')
+  result = result.replace(/== false/g, '异常')
+  result = result.replace(/<(\d+)/g, '&lt; $1')
+  result = result.replace(/>(\d+)/g, '&gt; $1')
+
+  return result
+}
 
 const props = defineProps({
   event: {
