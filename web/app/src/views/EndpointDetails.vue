@@ -203,12 +203,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
-import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
 import { useRouter, useRoute } from 'vue-router'
+
+const { t } = useI18n()
 import { ArrowLeft, RefreshCw, ArrowUpCircle, ArrowDownCircle, PlayCircle, Activity, Timer } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
