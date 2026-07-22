@@ -69,6 +69,7 @@ import { useRouter } from 'vue-router'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { generatePrettyTimeAgo } from '@/utils/time'
+import { buildDegradedReason } from '@/utils/condition'
 
 const router = useRouter()
 
@@ -110,49 +111,8 @@ const currentStatus = computed(() => {
  */
 const degradedReason = computed(() => {
   if (!latestResult.value || !latestResult.value.degraded) return ''
-  const result = latestResult.value
-  // 尝试从 conditionResults 中提取触发降级的具体条件
-  if (result.conditionResults && result.conditionResults.length > 0) {
-    const failedConditions = result.conditionResults.filter(c => !c.success)
-    if (failedConditions.length > 0) {
-      const reasons = failedConditions.map(c => {
-        const raw = c.condition
-        // 处理响应时间条件: [RESPONSE_TIME] < 200
-        const responseTimeMatch = raw.match(/\[RESPONSE_TIME\]\s*([<>=!]+)\s*(\d+)/)
-        if (responseTimeMatch) {
-          const durationMs = Math.trunc((result.duration || 0) / 1000000)
-          const threshold = responseTimeMatch[2]
-          return `响应时间 ${durationMs}ms 超过阈值 ${threshold}ms`
-        }
-        // 通用条件翻译降级原因
-        return translateConditionSimple(raw)
-      })
-      return reasons.join('; ')
-    }
-  }
-  // 兜底：显示响应时间
-  const durationMs = Math.trunc((result.duration || 0) / 1000000)
-  return `响应时间 ${durationMs}ms`
+  return buildDegradedReason(latestResult.value)
 })
-
-/** translateConditionSimple - 简易条件翻译（匹配 Tooltip.vue 中的 translateCondition），仅提取可读信息用于 tooltip */
-function translateConditionSimple(condition) {
-  if (!condition) return condition
-  const map = {
-    '[CONNECTED]': '连接',
-    '[STATUS]': '状态码',
-    '[BODY]': '响应体',
-    '[RESPONSE_TIME]': '响应时间',
-    '[CERTIFICATE_EXPIRATION]': '证书到期',
-    '[IP]': 'IP地址',
-    '[DNS_RCODE]': 'DNS返回码',
-  }
-  let result = condition
-  for (const [key, value] of Object.entries(map)) {
-    result = result.replaceAll(key, value)
-  }
-  return result
-}
 
 const hostname = computed(() => {
   return latestResult.value?.hostname || null

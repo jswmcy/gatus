@@ -217,6 +217,7 @@ import Pagination from '@/components/Pagination.vue'
 import Loading from '@/components/Loading.vue'
 import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
+import { buildDegradedReason } from '@/utils/condition'
 
 const router = useRouter()
 const route = useRoute()
@@ -251,38 +252,8 @@ const currentHealthStatus = computed(() => {
  */
 const degradedReason = computed(() => {
   if (!latestResult.value || !latestResult.value.degraded) return ''
-  const result = latestResult.value
-  if (result.conditionResults && result.conditionResults.length > 0) {
-    const failedConditions = result.conditionResults.filter(c => !c.success)
-    if (failedConditions.length > 0) {
-      const reasons = failedConditions.map(c => {
-        const raw = c.condition
-        const responseTimeMatch = raw.match(/\[RESPONSE_TIME\]\s*([<>=!]+)\s*(\d+)/)
-        if (responseTimeMatch) {
-          const durationMs = Math.trunc((result.duration || 0) / 1000000)
-          const threshold = responseTimeMatch[2]
-          return `响应时间 ${durationMs}ms 超过阈值 ${threshold}ms`
-        }
-        return translateConditionSimple(raw)
-      })
-      return reasons.join('; ')
-    }
-  }
-  const durationMs = Math.trunc((result.duration || 0) / 1000000)
-  return `响应时间 ${durationMs}ms`
+  return buildDegradedReason(latestResult.value)
 })
-
-function translateConditionSimple(condition) {
-  if (!condition) return condition
-  const map = {
-    '[CONNECTED]': '连接', '[STATUS]': '状态码', '[BODY]': '响应体',
-    '[RESPONSE_TIME]': '响应时间', '[CERTIFICATE_EXPIRATION]': '证书到期',
-    '[IP]': 'IP地址', '[DNS_RCODE]': 'DNS返回码',
-  }
-  let result = condition
-  for (const [key, value] of Object.entries(map)) result = result.replaceAll(key, value)
-  return result
-}
 
 const hostname = computed(() => {
   return latestResult.value?.hostname || null

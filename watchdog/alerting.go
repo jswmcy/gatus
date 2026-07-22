@@ -17,15 +17,21 @@ func HandleAlerting(ep *endpoint.Endpoint, result *endpoint.Result, alertingConf
 	if alertingConfig == nil {
 		return
 	}
+	// Determine the effective alert status key
+	alertStatus := result.StatusKey()
+
 	if result.Success && !result.Degraded {
-		// UP: resolve alerts
+		// UP: resolve all alerts
 		handleAlertsToResolve(ep, result, alertingConfig)
+		ep.LastAlertStatus = alertStatus
 	} else if result.Degraded {
 		// DEGRADED: degraded alerting
 		handleDegradedAlerts(ep, result, alertingConfig)
+		ep.LastAlertStatus = alertStatus
 	} else {
 		// DOWN: failure alerting
 		handleAlertsToTrigger(ep, result, alertingConfig)
+		ep.LastAlertStatus = alertStatus
 	}
 }
 
@@ -33,112 +39,89 @@ func handleAlertsToTrigger(ep *endpoint.Endpoint, result *endpoint.Result, alert
 	ep.NumberOfSuccessesInARow = 0
 	ep.NumberOfDegradedInARow = 0
 	ep.NumberOfFailuresInARow++
-	// Store the current LastReminderSent time so all alert providers use the same reference time for reminder checks
-	// This is important in case there are multiple alerts: if the first one sends a reminder, it would update the value
-	// of ep.LastReminderSent (since ep is a pointer), so the second one would never send a reminder, even if it was due.
-	// By storing the value in a local variable, we ensure all alerts use the same reference
-	lastReminderSent := ep.LastReminderSent
-	for _, endpointAlert := range ep.Alerts {
-		// If the alert hasn't been triggered, move to the next one
-		if !endpointAlert.IsEnabled() || endpointAlert.FailureThreshold > ep.NumberOfFailuresInARow {
-			continue
-		}
-		// Determine if an initial alert should be sent
-		sendInitialAlert := !endpointAlert.Triggered
-		// Determine if a reminder should be sent
-		sendReminder := endpointAlert.Triggered && endpointAlert.MinimumReminderInterval > 0 && time.Since(lastReminderSent) >= endpointAlert.MinimumReminderInterval
-		// If neither initial alert nor reminder needs to be sent, skip to the next alert
-		if !sendInitialAlert && !sendReminder {
-			logr.Debugf("[watchdog.handleAlertsToTrigger] Alert for endpoint=%s with description='%s' is not due for triggering or reminding, skipping", ep.Name, endpointAlert.GetDescription())
-			continue
-		}
-		alertProvider := alertingConfig.GetAlertingProviderByAlertType(endpointAlert.Type)
-		if alertProvider != nil {
-			logr.Infof("[watchdog.handleAlertsToTrigger] Sending %s alert because alert for endpoint with key=%s with description='%s' has been TRIGGERED", endpointAlert.Type, ep.Key(), endpointAlert.GetDescription())
-			var err error
-			alertType := "reminder"
-			if sendInitialAlert {
-				alertType = "initial"
-			}
-			log.Printf("[watchdog.handleAlertsToTrigger] Sending %s %s alert because alert for endpoint=%s with description='%s' has been TRIGGERED", alertType, endpointAlert.Type, ep.Name, endpointAlert.GetDescription())
-			if os.Getenv("MOCK_ALERT_PROVIDER") == "true" {
-				if os.Getenv("MOCK_ALERT_PROVIDER_ERROR") == "true" {
-					err = errors.New("error")
-				}
-			} else {
-				err = alertProvider.Send(ep, endpointAlert, result, false)
-			}
-			if err != nil {
-				logr.Errorf("[watchdog.handleAlertsToTrigger] Failed to send an alert for endpoint with key=%s: %s", ep.Key(), err.Error())
-			} else {
-				// Mark initial alert as triggered and update last reminder time
-				if sendInitialAlert {
-					endpointAlert.Triggered = true
-				}
-				ep.LastReminderSent = time.Now()
-				if err := store.Get().UpsertTriggeredEndpointAlert(ep, endpointAlert); err != nil {
-					logr.Errorf("[watchdog.handleAlertsToTrigger] Failed to persist triggered endpoint alert for endpoint with key=%s: %s", ep.Key(), err.Error())
-				}
-			}
-		} else {
-			logr.Warnf("[watchdog.handleAlertsToTrigger] Not sending alert of type=%s endpoint with key=%s despite being TRIGGERED, because the provider wasn't configured properly", endpointAlert.Type, ep.Key())
-		}
-	}
+
+	// If the status type changed (e.g. DEGRADED → UNHEALTHY), reset Triggered so
+	// alerts are sent as "initial" rather than "reminder".
+	resetTriggeredOnStatusChange(ep, "UNHEALTHY")
+
+	handleAlertBatch(ep, result, alertingConfig, ep.NumberOfFailuresInARow, "UNHEALTHY")
 }
 
 func handleDegradedAlerts(ep *endpoint.Endpoint, result *endpoint.Result, alertingConfig *alerting.Config) {
 	ep.NumberOfSuccessesInARow = 0
 	ep.NumberOfFailuresInARow = 0
 	ep.NumberOfDegradedInARow++
-	// Store the current LastReminderSent time so all alert providers use the same reference time for reminder checks
-	// This is important in case there are multiple alerts: if the first one sends a reminder, it would update the value
-	// of ep.LastReminderSent (since ep is a pointer), so the second one would never send a reminder, even if it was due.
-	// By storing the value in a local variable, we ensure all alerts use the same reference
+
+	// If the status type changed (e.g. UNHEALTHY → DEGRADED), reset Triggered so
+	// alerts are sent as "initial" rather than "reminder".
+	resetTriggeredOnStatusChange(ep, "DEGRADED")
+
+	handleAlertBatch(ep, result, alertingConfig, ep.NumberOfDegradedInARow, "DEGRADED")
+}
+
+// resetTriggeredOnStatusChange resets the Triggered flag for all alerts when the
+// alert status type transitions between DEGRADED and UNHEALTHY.
+// This ensures that cross-type transitions send "initial" alerts instead of "reminder".
+func resetTriggeredOnStatusChange(ep *endpoint.Endpoint, newStatus string) {
+	// Only reset if the status type actually changed between DEGRADED and UNHEALTHY.
+	// HEALTHY → non-HEALTHY transitions are handled by handleAlertsToResolve resetting Triggered.
+	if (newStatus == "DEGRADED" || newStatus == "UNHEALTHY") &&
+		(ep.LastAlertStatus == "DEGRADED" || ep.LastAlertStatus == "UNHEALTHY") &&
+		ep.LastAlertStatus != newStatus {
+		for _, endpointAlert := range ep.Alerts {
+			endpointAlert.Triggered = false
+			if err := store.Get().DeleteTriggeredEndpointAlert(ep, endpointAlert); err != nil {
+				// Silently fail - non-critical operation
+				logr.Debugf("[watchdog.resetTriggeredOnStatusChange] Failed to delete persisted alert for endpoint=%s: %s", ep.Key(), err.Error())
+			}
+		}
+	}
+}
+
+// handleAlertBatch is the shared core of handleAlertsToTrigger and handleDegradedAlerts.
+// It sends alerts for all configured alerting providers, respecting FailureThreshold,
+// MinimumReminderInterval, and whether this is an initial or reminder alert.
+func handleAlertBatch(ep *endpoint.Endpoint, result *endpoint.Result, alertingConfig *alerting.Config, thresholdCounter int, statusLabel string) {
 	lastReminderSent := ep.LastReminderSent
 	for _, endpointAlert := range ep.Alerts {
-		// If the alert hasn't been triggered, move to the next one
-		if !endpointAlert.IsEnabled() || endpointAlert.FailureThreshold > ep.NumberOfDegradedInARow {
+		if !endpointAlert.IsEnabled() || endpointAlert.FailureThreshold > thresholdCounter {
 			continue
 		}
-		// Determine if an initial alert should be sent
 		sendInitialAlert := !endpointAlert.Triggered
-		// Determine if a reminder should be sent
 		sendReminder := endpointAlert.Triggered && endpointAlert.MinimumReminderInterval > 0 && time.Since(lastReminderSent) >= endpointAlert.MinimumReminderInterval
-		// If neither initial alert nor reminder needs to be sent, skip to the next alert
 		if !sendInitialAlert && !sendReminder {
-			logr.Debugf("[watchdog.handleDegradedAlerts] Alert for endpoint=%s with description='%s' is not due for triggering or reminding, skipping", ep.Name, endpointAlert.GetDescription())
+			logr.Debugf("[watchdog.handleAlertBatch] Alert for endpoint=%s with description='%s' is not due for triggering or reminding, skipping", ep.Name, endpointAlert.GetDescription())
 			continue
 		}
 		alertProvider := alertingConfig.GetAlertingProviderByAlertType(endpointAlert.Type)
-		if alertProvider != nil {
-			logr.Infof("[watchdog.handleDegradedAlerts] Sending %s alert because alert for endpoint with key=%s with description='%s' has been TRIGGERED (DEGRADED)", endpointAlert.Type, ep.Key(), endpointAlert.GetDescription())
-			var err error
-			alertType := "reminder"
-			if sendInitialAlert {
-				alertType = "initial"
-			}
-			log.Printf("[watchdog.handleDegradedAlerts] Sending %s %s alert because alert for endpoint=%s with description='%s' has been TRIGGERED (DEGRADED)", alertType, endpointAlert.Type, ep.Name, endpointAlert.GetDescription())
-			if os.Getenv("MOCK_ALERT_PROVIDER") == "true" {
-				if os.Getenv("MOCK_ALERT_PROVIDER_ERROR") == "true" {
-					err = errors.New("error")
-				}
-			} else {
-				err = alertProvider.Send(ep, endpointAlert, result, false)
-			}
-			if err != nil {
-				logr.Errorf("[watchdog.handleDegradedAlerts] Failed to send an alert for endpoint with key=%s: %s", ep.Key(), err.Error())
-			} else {
-				// Mark initial alert as triggered and update last reminder time
-				if sendInitialAlert {
-					endpointAlert.Triggered = true
-				}
-				ep.LastReminderSent = time.Now()
-				if err := store.Get().UpsertTriggeredEndpointAlert(ep, endpointAlert); err != nil {
-					logr.Errorf("[watchdog.handleDegradedAlerts] Failed to persist triggered endpoint alert for endpoint with key=%s: %s", ep.Key(), err.Error())
-				}
+		if alertProvider == nil {
+			logr.Warnf("[watchdog.handleAlertBatch] Not sending alert of type=%s for endpoint with key=%s despite being TRIGGERED (%s), because the provider wasn't configured properly", endpointAlert.Type, ep.Key(), statusLabel)
+			continue
+		}
+		alertTypeStr := "reminder"
+		if sendInitialAlert {
+			alertTypeStr = "initial"
+		}
+		logr.Infof("[watchdog.handleAlertBatch] Sending %s alert because alert for endpoint with key=%s with description='%s' has been TRIGGERED (%s)", endpointAlert.Type, ep.Key(), endpointAlert.GetDescription(), statusLabel)
+		log.Printf("[watchdog.handleAlertBatch] Sending %s %s alert because alert for endpoint=%s with description='%s' has been TRIGGERED (%s)", alertTypeStr, endpointAlert.Type, ep.Name, endpointAlert.GetDescription(), statusLabel)
+		var err error
+		if os.Getenv("MOCK_ALERT_PROVIDER") == "true" {
+			if os.Getenv("MOCK_ALERT_PROVIDER_ERROR") == "true" {
+				err = errors.New("error")
 			}
 		} else {
-			logr.Warnf("[watchdog.handleDegradedAlerts] Not sending alert of type=%s endpoint with key=%s despite being TRIGGERED (DEGRADED), because the provider wasn't configured properly", endpointAlert.Type, ep.Key())
+			err = alertProvider.Send(ep, endpointAlert, result, false)
+		}
+		if err != nil {
+			logr.Errorf("[watchdog.handleAlertBatch] Failed to send an alert for endpoint with key=%s: %s", ep.Key(), err.Error())
+		} else {
+			if sendInitialAlert {
+				endpointAlert.Triggered = true
+			}
+			ep.LastReminderSent = time.Now()
+			if err := store.Get().UpsertTriggeredEndpointAlert(ep, endpointAlert); err != nil {
+				logr.Errorf("[watchdog.handleAlertBatch] Failed to persist triggered endpoint alert for endpoint with key=%s: %s", ep.Key(), err.Error())
+			}
 		}
 	}
 }

@@ -139,6 +139,12 @@ type Endpoint struct {
 	// NumberOfDegradedInARow is the number of degraded evaluations in a row
 	NumberOfDegradedInARow int `yaml:"-"`
 
+	// LastAlertStatus tracks the previous result status that triggered an alert.
+	// Possible values: "", "HEALTHY", "DEGRADED", "UNHEALTHY".
+	// Used to detect status-type transitions (e.g. DEGRADED→UNHEALTHY) so that
+	// alerts can be re-triggered as "initial" on cross-type state changes.
+	LastAlertStatus string `yaml:"-"`
+
 	// LastReminderSent is the time at which the last reminder was sent for this endpoint.
 	LastReminderSent time.Time `yaml:"-"`
 
