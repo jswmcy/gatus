@@ -366,6 +366,9 @@ func (e *Endpoint) EvaluateHealthWithContext(context *gontext.Gontext) *Result {
 		result.Success = true
 		result.Degraded = false
 	}
+	// Record both failure flags so downstream (event, alerting) can see full context
+	result.ConnectivityFailed = connectivityFailed
+	result.PerformanceFailed = performanceFailed
 	result.Timestamp = time.Now()
 	// Clean up parameters that we don't need to keep in the results
 	if processedEndpoint.UIConfig.HideURL {

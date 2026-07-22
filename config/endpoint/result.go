@@ -39,6 +39,12 @@ type Result struct {
 	// Degraded indicates the endpoint is functional but has performance issues
 	Degraded bool `json:"degraded"`
 
+	// ConnectivityFailed indicates whether any connectivity/functional condition failed
+	ConnectivityFailed bool `json:"-"`
+
+	// PerformanceFailed indicates whether any performance condition failed
+	PerformanceFailed bool `json:"-"`
+
 	// Timestamp when the request was sent
 	Timestamp time.Time `json:"timestamp"`
 
