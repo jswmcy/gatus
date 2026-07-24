@@ -102,7 +102,7 @@
             <div class="text-sm text-muted-foreground text-center">
               Powered by <a href="https://gatus.io" target="_blank" class="font-medium text-emerald-800 hover:text-emerald-600">Gatus</a>
             </div>
-            <Social />
+            <!-- <Social /> -->
           </div>
         </div>
       </footer>
